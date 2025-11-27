@@ -24,11 +24,10 @@ variable "listener_port" {
 
 variable "target_grups" {
   type = map(object({
-    target_type    = string
-    port           = number
-    vpc_id         = string
-    protocol       = string
-    forward_weight = number
+    target_type = string
+    port        = number
+    vpc_id      = string
+    protocol    = string
 
     health_check = optional(object({
       enabled             = bool
@@ -40,5 +39,21 @@ variable "target_grups" {
       healthy_threshold   = number
       unhealthy_threshold = number
     }))
+  }))
+}
+
+variable "listener_rules" {
+  type = map(object({
+    priority = number
+    action = object({
+      type     = string
+      forward  = optional(any)
+      redirect = optional(any)
+    })
+    condition = object({
+      type   = string
+      regex  = optional(list(string))
+      values = optional(list(string))
+    })
   }))
 }

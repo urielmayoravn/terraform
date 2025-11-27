@@ -30,7 +30,7 @@ resource "aws_lb_target_group" "target_groups" {
   }
 }
 
-resource "aws_lb_listener" "listeners" {
+resource "aws_lb_listener" "listener" {
   load_balancer_arn = aws_lb.main.arn
   protocol          = var.listener_protocol
   port              = var.listener_port
@@ -42,10 +42,38 @@ resource "aws_lb_listener" "listeners" {
       dynamic "target_group" {
         for_each = aws_lb_target_group.target_groups
         content {
-          arn    = target_group.value.arn
-          weight = var.target_grups[target_group.value.name].forward_weight
+          arn = target_group.value.arn
         }
       }
     }
   }
+}
+
+resource "aws_lb_listener_rule" "listener_rules" {
+  for_each     = var.listener_rules
+  listener_arn = aws_lb_listener.listener.arn
+  priority     = each.value.priority
+
+  action {
+    type             = each.value.action.type
+    target_group_arn = aws_lb_target_group.target_groups[each.key].arn
+  }
+
+  condition {
+    dynamic "path_pattern" {
+      for_each = each.value.condition.type == "path_pattern" ? [each.value.condition] : []
+      content {
+        regex_values = path_pattern.value.regex
+        values       = path_pattern.value.values
+      }
+    }
+    dynamic "host_header" {
+      for_each = each.value.condition.type == "host_header" ? [each.value.condition] : []
+      content {
+        regex_values = host_header.value.regex
+        values       = host_header.value.values
+      }
+    }
+  }
+
 }
