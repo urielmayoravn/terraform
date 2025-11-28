@@ -150,7 +150,7 @@ module "app_alb" {
       health_check = {
         enabled             = true
         interval            = 30
-        path                = "/health"
+        path                = "/api/health"
         port                = "traffic-port"
         protocol            = "HTTP"
         timeout             = 5
