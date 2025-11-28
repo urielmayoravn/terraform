@@ -33,5 +33,5 @@ resource "aws_ssm_parameter" "db_url" {
   name        = "/${var.environment}/database/connection_string"
   description = "DB connection string"
   type        = "SecureString"
-  value       = "postgresql://${var.db_username}:${random_password.db_password.result}@${aws_db_instance.default.endpoint}/${var.db_name}?sslmode=no-verify"
+  value       = "postgresql://${var.db_username}:${random_password.db_password.result}@${aws_db_instance.default.endpoint}/${var.db_name}"
 }
