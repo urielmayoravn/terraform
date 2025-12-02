@@ -271,7 +271,7 @@ module "ecs" {
           [
             {
               name  = "be-container"
-              image = "212155079774.dkr.ecr.us-west-2.amazonaws.com/fullstack-app/backend:1.3.1"
+              image = "212155079774.dkr.ecr.us-west-2.amazonaws.com/fullstack-app/backend:1.3.7"
               portMappings = [
                 {
                   containerPort = 3000
@@ -354,4 +354,159 @@ module "ecs" {
     }
   }
 
+}
+
+resource "aws_sns_topic" "alarms" {
+  name = "fullstack-app-cloudwatch-topic"
+}
+
+resource "aws_sns_topic_subscription" "alarm_email" {
+  topic_arn = aws_sns_topic.alarms.arn
+  protocol  = "email"
+  endpoint  = var.sns_endpoint_email
+
+}
+
+module "backend_cpu_alarm" {
+  source              = "../../modules/cloudwatch_metric_alarm"
+  alarm_name          = "backend-cpu-alarm"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 5
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "This alarm monitors the ecs backend service cpu utilization"
+  dimensions = {
+    ClusterName = module.ecs.cluster.name
+    ServiceName = module.ecs.services["backend"].name
+  }
+  actions = {
+    alarm = [aws_sns_topic.alarms.arn]
+    ok    = [aws_sns_topic.alarms.arn]
+  }
+}
+
+module "backend_memory_alarm" {
+  source              = "../../modules/cloudwatch_metric_alarm"
+  alarm_name          = "backend-memory-alarm"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 5
+  metric_name         = "MemoryUtilization"
+  namespace           = "AWS/ECS"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "This alarm monitors the ecs backend service memory utilization"
+  dimensions = {
+    ClusterName = module.ecs.cluster.name
+    ServiceName = module.ecs.services["backend"].name
+  }
+  actions = {
+    alarm = [aws_sns_topic.alarms.arn]
+    ok    = [aws_sns_topic.alarms.arn]
+  }
+}
+
+module "frontend_cpu_alarm" {
+  source              = "../../modules/cloudwatch_metric_alarm"
+  alarm_name          = "frontend-cpu-alarm"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 5
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "This alarm monitors the ecs frontend service cpu utilization"
+  dimensions = {
+    ClusterName = module.ecs.cluster.name
+    ServiceName = module.ecs.services["frontend"].name
+  }
+  actions = {
+    alarm = [aws_sns_topic.alarms.arn]
+    ok    = [aws_sns_topic.alarms.arn]
+  }
+}
+
+module "frontend_memory_alarm" {
+  source              = "../../modules/cloudwatch_metric_alarm"
+  alarm_name          = "frontend-memory-alarm"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 5
+  metric_name         = "MemoryUtilization"
+  namespace           = "AWS/ECS"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "This alarm monitors the ecs frontend service memory utilization"
+  dimensions = {
+    ClusterName = module.ecs.cluster.name
+    ServiceName = module.ecs.services["frontend"].name
+  }
+  actions = {
+    alarm = [aws_sns_topic.alarms.arn]
+    ok    = [aws_sns_topic.alarms.arn]
+  }
+}
+
+module "db_cpu_alarm" {
+  source              = "../../modules/cloudwatch_metric_alarm"
+  alarm_name          = "db-cpu-alarm"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 5
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/RDS"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "This alarm monitors the db cpu utilization"
+  dimensions = {
+    DBInstanceIdentifier = module.rds.db_instnace.id
+  }
+  actions = {
+    alarm = [aws_sns_topic.alarms.arn]
+    ok    = [aws_sns_topic.alarms.arn]
+  }
+}
+
+module "db_memory_alarm" {
+  source              = "../../modules/cloudwatch_metric_alarm"
+  alarm_name          = "db-memory-alarm"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 5
+  metric_name         = "MemoryUtilization"
+  namespace           = "AWS/RDS"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "This alarm monitors the db memory utilization"
+  dimensions = {
+    DBInstanceIdentifier = module.rds.db_instnace.id
+  }
+  actions = {
+    alarm = [aws_sns_topic.alarms.arn]
+    ok    = [aws_sns_topic.alarms.arn]
+  }
+}
+
+module "db_storage_alarm" {
+  source              = "../../modules/cloudwatch_metric_alarm"
+  alarm_name          = "db-free-storage-alarm"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 5
+  metric_name         = "FreeStorageSpace"
+  namespace           = "AWS/RDS"
+  period              = 60
+  statistic           = "Minimum"
+  threshold           = 20
+  alarm_description   = "This alarm monitors the db free storage"
+  dimensions = {
+    DBInstanceIdentifier = module.rds.db_instnace.id
+  }
+  actions = {
+    alarm = [aws_sns_topic.alarms.arn]
+    ok    = [aws_sns_topic.alarms.arn]
+  }
 }
