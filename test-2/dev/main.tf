@@ -258,6 +258,8 @@ module "ecs" {
         container_port   = 3000
       }
 
+      rollback_on_error = true
+
       task_definition = {
         family                   = "be-task"
         network_mode             = "awsvpc"
@@ -269,7 +271,7 @@ module "ecs" {
           [
             {
               name  = "be-container"
-              image = "212155079774.dkr.ecr.us-west-2.amazonaws.com/fullstack-app/backend:1.1.4"
+              image = "212155079774.dkr.ecr.us-west-2.amazonaws.com/fullstack-app/backend:1.3.1"
               portMappings = [
                 {
                   containerPort = 3000
@@ -323,7 +325,7 @@ module "ecs" {
           [
             {
               name  = "fe-container"
-              image = "212155079774.dkr.ecr.us-west-2.amazonaws.com/fullstack-app/frontend:1.1.6"
+              image = "212155079774.dkr.ecr.us-west-2.amazonaws.com/fullstack-app/frontend:1.1.11"
               portMappings = [
                 {
                   containerPort = 80

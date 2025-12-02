@@ -31,6 +31,8 @@ variable "services" {
       container_port   = string
     })
 
+    rollback_on_error = optional(bool, false)
+
   }))
 
 }

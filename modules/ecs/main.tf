@@ -42,4 +42,9 @@ resource "aws_ecs_service" "services" {
     container_port   = each.value.load_balancer.container_port
   }
 
+  deployment_circuit_breaker {
+    enable   = each.value.rollback_on_error
+    rollback = each.value.rollback_on_error
+  }
+
 }
