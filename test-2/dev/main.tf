@@ -356,15 +356,16 @@ module "ecs" {
 
 }
 
-resource "aws_sns_topic" "alarms" {
-  name = "fullstack-app-cloudwatch-topic"
-}
 
-resource "aws_sns_topic_subscription" "alarm_email" {
-  topic_arn = aws_sns_topic.alarms.arn
-  protocol  = "email"
-  endpoint  = var.sns_endpoint_email
-
+module "alarms_sns" {
+  source     = "../../modules/sns"
+  topic_name = "fullstack-app-cloudwatch-topic"
+  subscriptions = [
+    {
+      protocol = "email"
+      endpoint = var.sns_endpoint_email
+    }
+  ]
 }
 
 module "backend_cpu_alarm" {
@@ -383,8 +384,8 @@ module "backend_cpu_alarm" {
     ServiceName = module.ecs.services["backend"].name
   }
   actions = {
-    alarm = [aws_sns_topic.alarms.arn]
-    ok    = [aws_sns_topic.alarms.arn]
+    alarm = [module.alarms_sns.topic.arn]
+    ok    = [module.alarms_sns.topic.arn]
   }
 }
 
@@ -404,8 +405,8 @@ module "backend_memory_alarm" {
     ServiceName = module.ecs.services["backend"].name
   }
   actions = {
-    alarm = [aws_sns_topic.alarms.arn]
-    ok    = [aws_sns_topic.alarms.arn]
+    alarm = [module.alarms_sns.topic.arn]
+    ok    = [module.alarms_sns.topic.arn]
   }
 }
 
@@ -425,8 +426,8 @@ module "frontend_cpu_alarm" {
     ServiceName = module.ecs.services["frontend"].name
   }
   actions = {
-    alarm = [aws_sns_topic.alarms.arn]
-    ok    = [aws_sns_topic.alarms.arn]
+    alarm = [module.alarms_sns.topic.arn]
+    ok    = [module.alarms_sns.topic.arn]
   }
 }
 
@@ -446,8 +447,8 @@ module "frontend_memory_alarm" {
     ServiceName = module.ecs.services["frontend"].name
   }
   actions = {
-    alarm = [aws_sns_topic.alarms.arn]
-    ok    = [aws_sns_topic.alarms.arn]
+    alarm = [module.alarms_sns.topic.arn]
+    ok    = [module.alarms_sns.topic.arn]
   }
 }
 
@@ -466,8 +467,8 @@ module "db_cpu_alarm" {
     DBInstanceIdentifier = module.rds.db_instnace.id
   }
   actions = {
-    alarm = [aws_sns_topic.alarms.arn]
-    ok    = [aws_sns_topic.alarms.arn]
+    alarm = [module.alarms_sns.topic.arn]
+    ok    = [module.alarms_sns.topic.arn]
   }
 }
 
@@ -486,8 +487,8 @@ module "db_memory_alarm" {
     DBInstanceIdentifier = module.rds.db_instnace.id
   }
   actions = {
-    alarm = [aws_sns_topic.alarms.arn]
-    ok    = [aws_sns_topic.alarms.arn]
+    alarm = [module.alarms_sns.topic.arn]
+    ok    = [module.alarms_sns.topic.arn]
   }
 }
 
@@ -506,7 +507,7 @@ module "db_storage_alarm" {
     DBInstanceIdentifier = module.rds.db_instnace.id
   }
   actions = {
-    alarm = [aws_sns_topic.alarms.arn]
-    ok    = [aws_sns_topic.alarms.arn]
+    alarm = [module.alarms_sns.topic.arn]
+    ok    = [module.alarms_sns.topic.arn]
   }
 }
