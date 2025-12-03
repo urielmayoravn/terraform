@@ -1,5 +1,6 @@
 locals {
   all_ips = "0.0.0.0/0"
+  region  = "us-west-2"
 }
 
 module "vpc" {
@@ -357,6 +358,26 @@ module "ecs" {
 }
 
 
+module "lambda" {
+  source        = "../../modules/lambda"
+  filename      = "../../../lambda_functions/sns_slack_message/deployment_package.zip"
+  function_name = "slack_notification"
+  handler       = "lambda_function.lambda_handler"
+  runtime       = "python3.13"
+
+  permissions = [{
+    statement_id = "AllowExecutionFromSNS"
+    principal    = "sns.amazonaws.com"
+    source_arn   = module.alarms_sns.topic.arn
+  }]
+  required_role_policy_arns = ["arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess"]
+
+  environment_variables = {
+    "aws_region"         = local.region
+    "ssm_parameter_name" = "/devops/slack-webhook"
+  }
+}
+
 module "alarms_sns" {
   source     = "../../modules/sns"
   topic_name = "fullstack-app-cloudwatch-topic"
@@ -364,6 +385,10 @@ module "alarms_sns" {
     {
       protocol = "email"
       endpoint = var.sns_endpoint_email
+    },
+    {
+      protocol = "lambda"
+      endpoint = module.lambda.func.arn
     }
   ]
 }
