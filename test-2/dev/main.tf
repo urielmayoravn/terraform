@@ -360,7 +360,7 @@ module "ecs" {
 
 module "lambda" {
   source        = "../../modules/lambda"
-  filename      = "../../../lambda_functions/sns_slack_message/deployment_package.zip"
+  filename      = "../../lambda_functions/sns_slack_message/deployment_package.zip"
   function_name = "slack_notification"
   handler       = "lambda_function.lambda_handler"
   runtime       = "python3.13"
