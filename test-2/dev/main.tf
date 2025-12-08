@@ -1,6 +1,19 @@
 locals {
   all_ips = "0.0.0.0/0"
   region  = "us-west-2"
+  opensearch_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Principal = {
+          AWS = "*"
+        },
+        Action   = "es:ESHttp*",
+        Resource = "arn:aws:es:${local.region}:${data.aws_caller_identity.current.account_id}:domain/tf-test-opensearch/*"
+      }
+    ]
+  })
 }
 
 module "vpc" {
@@ -228,14 +241,68 @@ resource "aws_iam_role_policy_attachment" "ecs_ssm_read_role_policy" {
 
 }
 
+resource "aws_iam_role_policy" "allow_opensearch_access" {
+  name = "OpenSearchWriteAccessPolicy"
+  role = aws_iam_role.ecs_execution_role.name
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "es:ESHttp*"
+        ],
+        Resource = "arn:aws:es:${local.region}:${data.aws_caller_identity.current.account_id}:domain/tf-test-opensearch/*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role" "ecs_task_role" {
+  name = "ecsTaskRole"
+  assume_role_policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Sid" : "",
+        "Effect" : "Allow",
+        "Principal" : {
+          "Service" : "ecs-tasks.amazonaws.com"
+        },
+        "Action" : "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "allow_opensearch_full_access" {
+  name = "OpenSearchWriteAccessPolicy"
+  role = aws_iam_role.ecs_task_role.name
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect   = "Allow",
+        Action   = "es:ESHttp*",
+        Resource = "arn:aws:es:${local.region}:${data.aws_caller_identity.current.account_id}:domain/tf-test-opensearch/*"
+      }
+    ]
+  })
+}
+
 module "ecs" {
 
   depends_on = [
     module.app_alb,
+    module.opensearch,
+    module.rds,
     aws_ecr_repository.backend,
     aws_ecr_repository.frontend,
     aws_iam_role_policy_attachment.ecs_execution_role_policy,
-    aws_iam_role_policy_attachment.ecs_ssm_read_role_policy
+    aws_iam_role_policy_attachment.ecs_ssm_read_role_policy,
+    aws_iam_role_policy.allow_opensearch_access
   ]
 
   source = "../../modules/ecs"
@@ -267,35 +334,18 @@ module "ecs" {
         cpu                      = 512
         memory                   = 1024
         requires_compatibilities = ["FARGATE"]
+        task_role_arn            = aws_iam_role.ecs_task_role.arn
         execution_role_arn       = aws_iam_role.ecs_execution_role.arn
-        container_definitions = jsonencode(
-          [
-            {
-              name  = "be-container"
-              image = "212155079774.dkr.ecr.us-west-2.amazonaws.com/fullstack-app/backend:1.3.7"
-              portMappings = [
-                {
-                  containerPort = 3000
-                  protocol      = "tcp"
-                }
-              ],
-              logConfiguration = {
-                logDriver = "awslogs"
-                options = {
-                  awslogs-group         = "/ecs/fullstack-app/be"
-                  awslogs-region        = "us-west-2"
-                  awslogs-stream-prefix = "my-app"
-                }
-              }
-              secrets = [{
-                valueFrom = data.aws_ssm_parameter.db_url.arn
-                name      = "DATABASE_URL",
-              }]
-            }
-          ]
-        )
 
-        log_group_name        = "/ecs/fullstack-app/be"
+        container_definitions = templatefile("${path.module}/container_definitions/backend-task-def.json.tpl", {
+          backend_image_uri   = "212155079774.dkr.ecr.us-west-2.amazonaws.com/fullstack-app/backend:1.3.7"
+          region              = local.region
+          opensearch_endpoint = module.opensearch.domain.endpoint
+          db_secret_arn       = data.aws_ssm_parameter.db_url.arn
+          log_group_name      = "/ecs/fullstack-app/fluentbit-be"
+        })
+
+        log_group_name        = "/ecs/fullstack-app/fluentbit-be"
         log_retention_in_days = 1
       }
     }
@@ -321,35 +371,18 @@ module "ecs" {
         cpu                      = 512
         memory                   = 1024
         requires_compatibilities = ["FARGATE"]
+        task_role_arn            = aws_iam_role.ecs_task_role.arn
         execution_role_arn       = aws_iam_role.ecs_execution_role.arn
-        container_definitions = jsonencode(
-          [
-            {
-              name  = "fe-container"
-              image = "212155079774.dkr.ecr.us-west-2.amazonaws.com/fullstack-app/frontend:1.1.11"
-              portMappings = [
-                {
-                  containerPort = 80
-                  protocol      = "tcp"
-                }
-              ],
-              logConfiguration = {
-                logDriver = "awslogs"
-                options = {
-                  awslogs-group         = "/ecs/fullstack-app/fe"
-                  awslogs-region        = "us-west-2"
-                  awslogs-stream-prefix = "my-app"
-                }
-              }
-              environment = [{
-                value = "http://${module.app_alb.alb.dns_name}/api"
-                name  = "VITE_BACKEND_URL",
-              }]
-            }
-          ]
-        )
 
-        log_group_name        = "/ecs/fullstack-app/fe"
+        container_definitions = templatefile("${path.module}/container_definitions/frontend-task-def.json.tpl", {
+          frontend_image_uri  = "212155079774.dkr.ecr.us-west-2.amazonaws.com/fullstack-app/frontend:1.1.11"
+          region              = local.region
+          opensearch_endpoint = module.opensearch.domain.endpoint
+          backend_url         = "http://${module.app_alb.alb.dns_name}/api"
+          log_group_name      = "/ecs/fullstack-app/fluentbit-fe"
+        })
+
+        log_group_name        = "/ecs/fullstack-app/fluentbit-fe"
         log_retention_in_days = 1
       }
     }
@@ -535,4 +568,89 @@ module "db_storage_alarm" {
     alarm = [module.alarms_sns.topic.arn]
     ok    = [module.alarms_sns.topic.arn]
   }
+}
+
+resource "aws_key_pair" "ec2_key_pair" {
+  key_name   = "ec2-key"
+  public_key = file("~/.ssh/aws-key.pub")
+}
+
+module "bh_sg" {
+  source = "../../modules/security_group"
+  name   = "bastion-host-sg"
+  vpc_id = module.vpc.vpc_id
+  desc   = "Bastion host security group"
+  ingress_rules = [{
+    ip_protocol = "tcp"
+    from_port   = 22
+    to_port     = 22
+    cidr_ipv4   = local.all_ips
+  }]
+}
+
+module "bastion_host" {
+  depends_on         = [module.bh_sg]
+  source             = "../../modules/ec2_instance"
+  ami_id             = data.aws_ami.ubuntu.id
+  instance_type      = "t2.micro"
+  subnet_id          = module.vpc.public_subnet_ids["0"]
+  security_group_ids = [module.bh_sg.sg_id]
+  key_pair_name      = aws_key_pair.ec2_key_pair.key_name
+  Name               = "TF-TEST-BH-EC2"
+}
+
+module "opeansearch_sg" {
+  source = "../../modules/security_group"
+
+  depends_on = [module.bastion_host, module.vpc]
+  name       = "opensearch-sg"
+  vpc_id     = module.vpc.vpc_id
+  desc       = "Security group to connect to opensearch from bastion host"
+  ingress_rules = [{
+    ip_protocol                  = "tcp"
+    from_port                    = 443
+    to_port                      = 443
+    referenced_security_group_id = module.bh_sg.sg_id
+    },
+    {
+      ip_protocol                  = "tcp"
+      from_port                    = 443
+      to_port                      = 443
+      referenced_security_group_id = module.aws_be_ecs_security_group.sg_id
+    },
+    {
+      ip_protocol                  = "tcp"
+      from_port                    = 443
+      to_port                      = 443
+      referenced_security_group_id = module.aws_fe_ecs_security_group.sg_id
+    }
+  ]
+}
+
+data "aws_caller_identity" "current" {}
+
+module "opensearch" {
+  depends_on = [module.opeansearch_sg]
+  source     = "../../modules/opensearch"
+
+  domain_name    = "tf-test-opensearch"
+  engine_version = "OpenSearch_3.3"
+
+  cluster_config = {
+    instance_type = "t3.small.search"
+  }
+
+  vpc_options = {
+    subnet_ids         = [module.vpc.private_subnet_ids["0"]]
+    security_group_ids = [module.opeansearch_sg.sg_id]
+  }
+
+  ebs_options = {
+    ebs_enabled = true
+    volume_size = 10
+    volume_type = "gp3"
+    iops        = 3000
+    throughput  = 125
+  }
+  access_policies = local.opensearch_policy
 }
