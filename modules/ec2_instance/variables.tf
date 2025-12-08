@@ -17,7 +17,8 @@ variable "subnet_id" {
 variable "user_data_sh" {
   description = "EC2 Initial Script"
   type        = string
-  default     = ""
+  nullable    = true
+  default     = null
 }
 
 variable "security_group_ids" {
