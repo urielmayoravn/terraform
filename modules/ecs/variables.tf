@@ -19,10 +19,11 @@ variable "services" {
       cpu                      = number
       memory                   = number
       requires_compatibilities = list(string)
+      task_role_arn            = optional(string)
       execution_role_arn       = string
       container_definitions    = string
-      log_group_name           = string
-      log_retention_in_days    = number
+      log_group_name           = optional(string)
+      log_retention_in_days    = optional(number)
     })
 
     load_balancer = object({

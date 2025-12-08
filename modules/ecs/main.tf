@@ -17,6 +17,7 @@ resource "aws_ecs_task_definition" "tasks" {
   cpu                      = each.value.task_definition.cpu
   memory                   = each.value.task_definition.memory
   requires_compatibilities = each.value.task_definition.requires_compatibilities
+  task_role_arn            = lookup(each.value.task_definition, "task_role_arn", null)
   execution_role_arn       = each.value.task_definition.execution_role_arn
   container_definitions    = each.value.task_definition.container_definitions
 }
