@@ -16,6 +16,16 @@ locals {
 
 }
 
+resource "aws_ecr_repository" "repositories" {
+  for_each = {
+    for svc_name, svc in var.services : svc_name => svc
+    if lookup(svc, "create_ecr_repository", false) == true
+  }
+
+  name         = each.value.ecr_repository_name
+  force_delete = true
+}
+
 resource "aws_ecs_cluster" "main" {
   name = var.cluster_name
 }

@@ -7,6 +7,9 @@ variable "services" {
     desired_count = number
     launch_type   = string
 
+    create_ecr_repository = optional(bool, false)
+    ecr_repository_name   = optional(string)
+
     network_configuration = object({
       subnets          = list(string)
       security_groups  = list(string)

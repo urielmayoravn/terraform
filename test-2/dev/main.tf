@@ -204,13 +204,6 @@ module "app_alb" {
   }
 }
 
-resource "aws_ecr_repository" "backend" {
-  name = "fullstack-app/backend"
-}
-
-resource "aws_ecr_repository" "frontend" {
-  name = "fullstack-app/frontend"
-}
 
 module "ecs" {
 
@@ -218,8 +211,6 @@ module "ecs" {
     module.app_alb,
     module.opensearch,
     module.rds,
-    aws_ecr_repository.backend,
-    aws_ecr_repository.frontend,
     aws_iam_role_policy_attachment.ecs_execution_role_policy,
     aws_iam_role_policy_attachment.ecs_ssm_read_role_policy,
     aws_iam_role_policy.allow_opensearch_access
@@ -233,6 +224,9 @@ module "ecs" {
     backend = {
       desired_count = 1
       launch_type   = "FARGATE"
+
+      create_ecr_repository = true
+      ecr_repository_name   = "fullstack-app/backend"
 
       network_configuration = {
         subnets          = module.vpc.public_subnet_ids
@@ -320,6 +314,9 @@ module "ecs" {
     frontend = {
       desired_count = 1
       launch_type   = "FARGATE"
+
+      create_ecr_repository = true
+      ecr_repository_name   = "fullstack-app/frontend"
 
       network_configuration = {
         subnets          = module.vpc.public_subnet_ids
