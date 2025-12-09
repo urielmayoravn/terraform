@@ -32,6 +32,31 @@ variable "services" {
       container_port   = string
     })
 
+    autoscaling = optional(object({
+      min_capacity = number
+      max_capacity = number
+      policies = map(object({
+        type = string
+        conf = object({
+          adjustment_type         = optional(string)
+          metric_aggregation_type = optional(string)
+          cooldown                = optional(number)
+
+          step_adjustment = optional(list(object({
+            scaling_adjustment          = number
+            metric_interval_lower_bound = optional(number)
+            metric_interval_upper_bound = optional(number)
+          })))
+
+          metric_type        = optional(string)
+          target_value       = optional(number)
+          scale_in_cooldown  = optional(number)
+          scale_out_cooldown = optional(number)
+          resource_label     = optional(string)
+        })
+      }))
+    }))
+
     rollback_on_error = optional(bool, false)
 
   }))

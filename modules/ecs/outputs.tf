@@ -5,3 +5,7 @@ output "cluster" {
 output "services" {
   value = aws_ecs_service.services
 }
+
+output "scaling_policies" {
+  value = aws_appautoscaling_policy.app_as_policy
+}

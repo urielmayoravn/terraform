@@ -328,6 +328,54 @@ module "ecs" {
 
       rollback_on_error = true
 
+      autoscaling = {
+        min_capacity = 1
+        max_capacity = 3
+        policies = {
+          cpu_scale_in = {
+            type = "StepScaling"
+            conf = {
+              adjustment_type = "ChangeInCapacity"
+              step_adjustment = [{
+                scaling_adjustment          = -1
+                metric_interval_lower_bound = 0
+              }]
+            }
+          }
+          cpu_scale_out = {
+            type = "StepScaling"
+            conf = {
+              adjustment_type = "ChangeInCapacity"
+              step_adjustment = [{
+                scaling_adjustment          = 1
+                metric_interval_upper_bound = 0
+              }]
+            }
+          }
+          mem_scale_in = {
+            type = "StepScaling"
+            conf = {
+              adjustment_type = "ChangeInCapacity"
+              step_adjustment = [{
+                scaling_adjustment          = -1
+                metric_interval_lower_bound = 0
+              }]
+            }
+          }
+          mem_scale_out = {
+            type = "StepScaling"
+            conf = {
+              adjustment_type = "ChangeInCapacity"
+              step_adjustment = [{
+                scaling_adjustment          = 1
+                metric_interval_upper_bound = 0
+              }]
+            }
+          }
+        }
+      }
+
+
       task_definition = {
         family                   = "be-task"
         network_mode             = "awsvpc"
@@ -442,8 +490,11 @@ module "backend_cpu_alarm" {
     ServiceName = module.ecs.services["backend"].name
   }
   actions = {
-    alarm = [module.alarms_sns.topic.arn]
-    ok    = [module.alarms_sns.topic.arn]
+    alarm = [
+      module.alarms_sns.topic.arn,
+      module.ecs.scaling_policies["backend.cpu_scale_out"].arn
+    ]
+    ok = [module.alarms_sns.topic.arn]
   }
 }
 
@@ -463,8 +514,11 @@ module "backend_memory_alarm" {
     ServiceName = module.ecs.services["backend"].name
   }
   actions = {
-    alarm = [module.alarms_sns.topic.arn]
-    ok    = [module.alarms_sns.topic.arn]
+    alarm = [
+      module.alarms_sns.topic.arn,
+      module.ecs.scaling_policies["backend.mem_scale_out"].arn
+    ]
+    ok = [module.alarms_sns.topic.arn]
   }
 }
 
