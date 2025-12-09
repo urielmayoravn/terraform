@@ -544,9 +544,13 @@ module "db_storage_alarm" {
   }
 }
 
-resource "aws_key_pair" "ec2_key_pair" {
-  key_name   = "ec2-key"
-  public_key = file("~/.ssh/aws-key.pub")
+
+module "ec2_key_pair" {
+  source = "../../modules/ec2_keypair"
+
+  key_name        = "ec2-key"
+  public_key_path = "~/.ssh/aws-key.pub"
+
 }
 
 module "bh_sg" {
@@ -569,7 +573,7 @@ module "bastion_host" {
   instance_type      = "t2.micro"
   subnet_id          = module.vpc.public_subnet_ids["0"]
   security_group_ids = [module.bh_sg.sg_id]
-  key_pair_name      = aws_key_pair.ec2_key_pair.key_name
+  key_pair_name      = module.ec2_key_pair.key.key_name
   Name               = "TF-TEST-BH-EC2"
 }
 
